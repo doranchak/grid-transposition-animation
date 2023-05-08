@@ -11,6 +11,7 @@ const MS_1 = 1000;
 const MS_2 = 50;
 
 const colors = generateColors(20);
+// console.log(colors);
 
 const CIPHER = ["ESTSHDMNEDOIRRE",
 "NCACOEEINOFCOED",
@@ -36,30 +37,49 @@ const CIPHER = ["ESTSHDMNEDOIRRE",
 "OAOOAAUVATUOAZO"];
 
 function App() {
-  const [grid, setGrid] = useState(createGrid(GRID_ROWS, GRID_COLS));
+  const [grid, setGrid] = useState(createGrid(GRID_ROWS, GRID_COLS, 0));
   let [currentRow, setCurrentRow] = useState(0);
   let [currentCol, setCurrentCol] = useState(0);
 
   return (
     <>
-      <div className="App">
-        {grid.map((row, rowIndex) => (
-          <div className="row" key={rowIndex}>
-            {row.map((col, colIndex) => (
-              <div className={cl(rowIndex, colIndex, grid[rowIndex][colIndex])} key={`${rowIndex}-${colIndex}`}>{CIPHER[rowIndex][colIndex]}</div>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="controls">
-        <button type="button" onClick={() => reading(setGrid, setCurrentRow, setCurrentCol, grid)}>Reading</button>
-        <button type="button" onClick={() => ngramsRender(setGrid, grid, 2)}>Bigrams</button>
-        <button type="button" onClick={() => ngramsRender(setGrid, grid, 3)}>Trigrams</button>
-        <button type="button" onClick={() => ngramsRender(setGrid, grid, 4)}>Quadgrams</button>
-        <button type="button" onClick={() => reset(setGrid, setCurrentRow, setCurrentCol, grid)}>Reset</button>
-      </div>
+      <center>
+        <table>
+          <tr>
+            <td>
+              <div className="controls">
+                <button type="button" onClick={() => reading(setGrid, setCurrentRow, setCurrentCol, grid)}>Reading</button><br/>
+                <button type="button" onClick={() => ngramsRender(setGrid, grid, 2)}>Bigrams</button><br/>
+                <button type="button" onClick={() => ngramsRender(setGrid, grid, 3)}>Trigrams</button><br/>
+                <button type="button" onClick={() => ngramsRender(setGrid, grid, 4)}>Quadgrams</button><br/>
+                <button type="button" onClick={() => reset(setGrid, setCurrentRow, setCurrentCol, grid)}>Reset</button><br/>
+              </div>
+            </td>
+            <td>
+              <div className="App">
+                {grid.map((row, rowIndex) => (
+                  <div className="row" key={rowIndex}>
+                    {row.map((col, colIndex) => (
+                      <div style={style(rowIndex, colIndex, grid[rowIndex][colIndex])} className={cl(rowIndex, colIndex, grid[rowIndex][colIndex])} key={`${rowIndex}-${colIndex}`}>{CIPHER[rowIndex][colIndex]}</div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </td>
+          </tr>
+        </table>
+      </center>
     </>
   );
+}
+
+function style(row, col, val) {
+  // return {color: "red"};
+  if (val < 2) return;
+  let color = colors[val-2];
+  let style = {color: color.fg, backgroundColor: color.bg};
+  // console.log(style);
+  return style;
 }
 
 function reading(setGrid, setCurrentRow, setCurrentCol, grid) {
@@ -83,7 +103,7 @@ function tick(currentRow, currentCol, setCurrentRow, setCurrentCol, grid, setGri
 }
 
 function reset(setGrid, setCurrentRow, setCurrentCol, grid) {
-  setGrid(createGrid(GRID_ROWS, GRID_COLS));
+  setGrid(createGrid(GRID_ROWS, GRID_COLS, 0));
   setCurrentRow(0);
   setCurrentCol(0);
 }
@@ -105,7 +125,8 @@ function reset(setGrid, setCurrentRow, setCurrentCol, grid) {
 
 function ngramsRender(setGrid, grid, n) {
   // get counts of ngrams
-  let ng = ngrams(decode(), n);
+  let plaintext = decode();
+  let ng = ngrams(plaintext, n);
   console.log("Plaintext: " + decode());
   console.log("Ngram counts: " + ng);
   // get nodes.  ignore all that don't repeat.
@@ -122,6 +143,54 @@ function ngramsRender(setGrid, grid, n) {
   let ind_set = mwis.map(item => nodes[item]);
   console.log("Max weight independent set: " + ind_set);
   console.log("Weights: " + ind_set.map(item => ng[item]));
+
+  // render ngrams
+  // reset grid
+  grid = createGrid(GRID_ROWS, GRID_COLS, 1);
+  setGrid(grid);
+
+  setTimeout(() => ngramsTick(ind_set, 0, plaintext, grid, setGrid), 1500);
+}
+
+function ngramsTick(ngrams, ngramsIndex, plaintext, grid, setGrid) {
+  console.log("tick", ngramsIndex);
+  if (ngramsIndex >= ngrams.length) return;
+  let ngram = ngrams[ngramsIndex];
+  getSubstringPositions(plaintext, ngram).forEach(pos => {
+    let positions = [];
+    for (let i=0; i<ngram.length; i++) positions.push(pos+i);
+    positions.forEach(pos2 => {
+      let rc = rowColFrom(pos2);
+      grid[rc[0]][rc[1]] = ngramsIndex+2;
+      console.log(ngram + " " + pos2 + " " + rc);
+    });
+  });
+  let newGrid = clone2DArray(grid);
+  setGrid(newGrid);
+  setTimeout(() => ngramsTick(ngrams, ngramsIndex+1, plaintext, grid, setGrid), 500);
+};
+
+/** pos is relative to transposed reading order.  converts to row,col of grid. */
+function rowColFrom(pos) {
+  return [pos % GRID_ROWS, parseInt(pos/GRID_ROWS)];
+}
+
+function clone2DArray(arr) {
+  let clone = [];
+  for (let i = 0; i < arr.length; i++) {
+    clone[i] = arr[i].slice();
+  }
+  return clone;
+}
+
+function getSubstringPositions(str, subStr) {
+  let positions = [];
+  let pos = str.indexOf(subStr);
+  while (pos !== -1) {
+    positions.push(pos);
+    pos = str.indexOf(subStr, pos + 1);
+  }
+  return positions;
 }
 
 function doSA(nodes, ng, iterations) {
@@ -164,12 +233,12 @@ function share(ngram1, ngram2) {
 function cl(row, col, highlight) {
   return highlight ? "col highlight" : "col";
 }
-function createGrid(rows, cols) {
+function createGrid(rows, cols, init) {
   const grid = [];
   for (let i = 0; i < rows; i++) {
     const row = [];
     for (let j = 0; j < cols; j++) {
-      row.push(0);
+      row.push(init);
     }
     grid.push(row);
   }

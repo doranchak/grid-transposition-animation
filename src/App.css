@@ -1,6 +1,6 @@
 .App {
   font-family: monospace;
-  font-size: 25px;
+  font-size: 22px;
   color: #ddd;
   display: flex;
   flex-direction: column;
@@ -14,8 +14,8 @@
 }
 
 .col {
-  width: 35px;
-  height: 35px;
+  width: 31px;
+  height: 31px;
   border: 1px solid black;
   display: flex;
   justify-content: center;
@@ -33,4 +33,8 @@
 @keyframes high {
   from {background-color: orange; color: #ddd;}
   to {background-color: lightyellow; color: black;}
+}
+
+.controls {
+  margin-right: 3em;
 }
